@@ -17,103 +17,17 @@
  * Or in-process:   const { url, close } = await startMock()
  */
 import http from 'node:http';
-import { deflateSync } from 'node:zlib';
 import { createHash, randomUUID } from 'node:crypto';
-
-// ── minimal PNG encoder ──────────────────────────────────────────────────────
-
-const CRC_TABLE = (() => {
-  const t = new Int32Array(256);
-  for (let n = 0; n < 256; n++) {
-    let c = n;
-    for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
-    t[n] = c;
-  }
-  return t;
-})();
-
-function crc32(buf) {
-  let c = -1;
-  for (let i = 0; i < buf.length; i++) c = CRC_TABLE[(c ^ buf[i]) & 0xff] ^ (c >>> 8);
-  return (c ^ -1) >>> 0;
-}
-
-function chunk(type, data) {
-  const len = Buffer.alloc(4);
-  len.writeUInt32BE(data.length);
-  const td = Buffer.concat([Buffer.from(type, 'ascii'), data]);
-  const crc = Buffer.alloc(4);
-  crc.writeUInt32BE(crc32(td));
-  return Buffer.concat([len, td, crc]);
-}
-
-/** RGB PNG from a (x,y)->[r,g,b] painter. */
-function png(width, height, paint) {
-  const raw = Buffer.alloc(height * (1 + width * 3));
-  let o = 0;
-  for (let y = 0; y < height; y++) {
-    raw[o++] = 0; // filter: none
-    for (let x = 0; x < width; x++) {
-      const [r, g, b] = paint(x, y);
-      raw[o++] = r;
-      raw[o++] = g;
-      raw[o++] = b;
-    }
-  }
-  const ihdr = Buffer.alloc(13);
-  ihdr.writeUInt32BE(width, 0);
-  ihdr.writeUInt32BE(height, 4);
-  ihdr[8] = 8; // bit depth
-  ihdr[9] = 2; // colour type: truecolour
-  return Buffer.concat([
-    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
-    chunk('IHDR', ihdr),
-    chunk('IDAT', deflateSync(raw, { level: 6 })),
-    chunk('IEND', Buffer.alloc(0)),
-  ]);
-}
-
-/**
- * A synthetic "browser" frame: chrome, a URL bar, and a content area whose
- * blocks advance with the step, so consecutive frames are visibly distinct
- * (which the pipeline's distinctness check relies on).
- */
-function browserFrame(step, total, host) {
-  const W = 1280;
-  const H = 720;
-  const hue = (step * 37) % 360;
-  const seed = [...host].reduce((a, c) => a + c.charCodeAt(0), 0);
-  const rows = 9;
-  const filled = Math.min(rows, Math.round((step / Math.max(1, total)) * rows));
-  return png(W, H, (x, y) => {
-    if (y < 64) return [32, 34, 40]; // title bar
-    if (y < 108) return x < 12 || x > W - 12 ? [32, 34, 40] : [52, 56, 66]; // URL bar
-    if (y < 116) {
-      // progress strip
-      return x < (W * step) / Math.max(1, total) ? [88, 166, 255] : [40, 42, 50];
-    }
-    const ry = Math.floor((y - 132) / 62);
-    const inRow = (y - 132) % 62 < 44 && x > 64 && x < W - 64;
-    if (ry >= 0 && ry < rows && inRow) {
-      if (ry < filled) {
-        const t = (ry * 90 + seed + hue) % 360;
-        const c = (o) => 120 + Math.round(70 * Math.sin(((t + o) * Math.PI) / 180));
-        // right-hand cells lag, so the row "fills in" across steps
-        const frac = (x - 64) / (W - 128);
-        return frac < (step % 3) / 3 + 0.34 ? [c(0), c(120), c(240)] : [236, 238, 242];
-      }
-      return [236, 238, 242];
-    }
-    return [250, 250, 252];
-  });
-}
+import { pathToFileURL } from 'node:url';
+import { renderFrame } from './portal.mjs';
 
 // ── run state machine ────────────────────────────────────────────────────────
 
 const PROVISION_TICKS = 2;
 
 class Run {
-  constructor({ id, task, maxSteps, totalSteps }) {
+  constructor({ id, task, maxSteps, totalSteps, unit }) {
+    this.unit = unit ?? {};
     this.id = id;
     this.task = task;
     this.status = 'queued';
@@ -134,9 +48,21 @@ class Run {
     this.events.push({ seq: this.events.length + 1, type, data });
   }
 
+  /**
+   * Tear the ephemeral machine down. This MUST happen in the same tick that
+   * puts the run into a terminal state: `waitForRun` returns on the first
+   * terminal observation, so leaving cleanup to the next tick opened a ~1-tick
+   * window where a caller saw `succeeded` with `cleanup_status: 'pending'`.
+   * That was a real ~4%-per-suite flake, i.e. red CI on most pushes.
+   */
+  teardown() {
+    this.machine.status = 'terminated';
+    this.machine.cleanup_status = 'terminated';
+  }
+
   tick() {
     if (['succeeded', 'failed', 'cancelled', 'timed_out'].includes(this.status)) {
-      if (this.machine.cleanup_status !== 'terminated') this.machine.cleanup_status = 'terminated';
+      this.teardown();
       return;
     }
     if (this.machine.status === 'provisioning') {
@@ -149,7 +75,7 @@ class Run {
       return;
     }
     const step = this.steps_completed + 1;
-    const buf = browserFrame(step, this.totalSteps, this.host);
+    const buf = renderFrame(this.unit, step, this.totalSteps);
     this.frames.push({
       index: this.frames.length,
       attempt: 1,
@@ -173,10 +99,12 @@ class Run {
     if (step >= this.totalSteps) {
       this.status = 'succeeded';
       this.result = { passed: true, status: 'succeeded', summary: `Completed in ${step} steps.` };
+      this.teardown();
       this.emit('done', { status: 'succeeded', result: this.result });
     } else if (step >= this.max_steps) {
       this.status = 'failed';
       this.result = { passed: false, status: 'failed', summary: 'Hit max_steps.' };
+      this.teardown();
       this.emit('done', { status: 'failed', result: this.result });
     }
   }
@@ -184,7 +112,7 @@ class Run {
 
 // ── server ───────────────────────────────────────────────────────────────────
 
-export async function startMock({ port = 0, tickMs = 60, steps = 14, host = 'example.com' } = {}) {
+export async function startMock({ port = 0, tickMs = 60, steps = 14, unit = {} } = {}) {
   const runs = new Map();
   const idem = new Map();
   const timers = new Set();
@@ -236,8 +164,9 @@ export async function startMock({ port = 0, tickMs = 60, steps = 14, host = 'exa
         task: body.task,
         maxSteps: body.max_steps ?? 150,
         totalSteps: steps,
+        unit,
       });
-      run.host = host;
+      run.host = unit.target ?? 'example.com';
       runs.set(run.id, run);
       const t = setInterval(() => run.tick(), tickMs);
       timers.add(t);
@@ -335,10 +264,15 @@ function publicRun(run) {
   };
 }
 
-// CLI
-if (import.meta.url === `file://${process.argv[1]?.replace(/\\/g, '/')}`) {
+// CLI. `file://${path}` yields two slashes on Windows against import.meta.url's
+// three, so `npm run mock` was a silent no-op there — it exited 0 with no
+// listener. pathToFileURL is the portable form (src/cli.mjs already uses it).
+if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
+  const argPort = process.argv.find((a) => a.startsWith('--port='))?.split('=')[1];
   const i = process.argv.indexOf('--port');
-  const port = i > -1 ? Number(process.argv[i + 1]) : 4010;
-  const { url } = await startMock({ port });
+  const port = Number(argPort ?? (i > -1 ? process.argv[i + 1] : 4010));
+  const { readFile } = await import('node:fs/promises');
+  const unit = JSON.parse(await readFile(new URL('../automation.json', import.meta.url), 'utf8'));
+  const { url } = await startMock({ port, steps: unit.expectedSteps ?? 14, unit });
   console.log(`offline coasty mock → ${url}`);
 }

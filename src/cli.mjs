@@ -74,15 +74,33 @@ async function ensureTarget(unit, wantLive) {
   }
   // Windows: a bare absolute path throws ERR_UNSUPPORTED_ESM_URL_SCHEME.
   const { startMock } = await import(pathToFileURL(path.join(ROOT, 'tools', 'mock.mjs')).href);
-  const mock = await startMock({ steps: unit.expectedSteps, host: unit.target });
+  const mock = await startMock({ steps: unit.expectedSteps, unit });
   return { baseUrl: mock.url, isLive: false, close: mock.close };
 }
 
 const j = (o) => JSON.stringify(o);
 
+const COMMANDS = ['run', 'demo', 'estimate'];
+
 async function main(argv) {
-  const { _, flags } = parseArgs(argv);
+  // A malformed flag is a user error, not a crash: parsing sits outside the
+  // try/catch below, so an uncaught throw here escaped as a raw stack trace
+  // with exit 1 — indistinguishable from a failed run.
+  let parsed;
+  try {
+    parsed = parseArgs(argv);
+  } catch (err) {
+    console.error(err.message);
+    return 2;
+  }
+  const { _, flags } = parsed;
   const cmd = _[0] ?? 'run';
+  // An unvalidated command fell through to the demo path, so a typo rendered
+  // over the committed README hero (and, live, spent real money doing it).
+  if (!COMMANDS.includes(cmd)) {
+    console.error(`Unknown command '${cmd}'. Expected: ${COMMANDS.join(' | ')}`);
+    return 2;
+  }
   const unit = await loadUnit();
   const est = estimateCents(unit);
 
@@ -93,23 +111,6 @@ async function main(argv) {
   }
 
   const wantLive = Boolean(flags.live);
-  // Cost consent is a SEPARATE decision from destination consent, and it is
-  // required only when real money is at stake.
-  if (wantLive) {
-    const confirmed = Number(flags['confirm-cost-cents'] ?? NaN);
-    if (!Number.isInteger(confirmed) || confirmed !== est.worstCase) {
-      console.error(renderEstimate(unit, est));
-      console.error(
-        `\nRefusing to spend without explicit confirmation.\n` +
-          `Re-run with:  --live --confirm-cost-cents ${est.worstCase}`,
-      );
-      return 2;
-    }
-    if (est.worstCase > unit.capCents) {
-      console.error(`Worst case ${est.worstCase}¢ exceeds this unit's cap of ${unit.capCents}¢.`);
-      return 2;
-    }
-  }
 
   // `ensureTarget` itself can refuse (fail-closed destination), so it must be
   // inside the guarded block — otherwise the refusal escapes as a stack trace
@@ -117,6 +118,28 @@ async function main(argv) {
   let target = { close: async () => {} };
   try {
     target = await ensureTarget(unit, wantLive);
+
+    // Cost consent is a SEPARATE decision from destination consent, and it is
+    // gated on the RESOLVED target rather than on the --live flag. Keying it off
+    // the flag was a hole: `ensureTarget` goes live on COASTY_BASE_URL alone, so
+    // a plain `npm start` under the env the README tells you to export submitted
+    // a real, billable run with no cost confirmation and no cap check at all.
+    if (target.isLive) {
+      const confirmed = Number(flags['confirm-cost-cents'] ?? NaN);
+      if (!Number.isInteger(confirmed) || confirmed !== est.worstCase) {
+        console.error(renderEstimate(unit, est));
+        console.error(
+          `\nRefusing to spend without explicit confirmation.\n` +
+            `Re-run with:  --live --confirm-cost-cents ${est.worstCase}`,
+        );
+        return 2;
+      }
+      if (est.worstCase > unit.capCents) {
+        console.error(`Worst case ${est.worstCase}¢ exceeds this unit's cap of ${unit.capCents}¢.`);
+        return 2;
+      }
+    }
+
     const logger = makeLogger(process.stderr, { slug: unit.slug });
     const client = new CoastyClient({
       baseUrl: target.baseUrl,
@@ -197,7 +220,10 @@ async function main(argv) {
     if (flags.json) {
       console.log(j(out));
     } else {
-      console.log(`  ${frames.length} frames · ${captions.size} captions · ${probed.width}x${probed.height} · ${out.duration_s}s`);
+      // "captions recovered", not "captions": they come back from the SSE
+      // timeline but capture.mjs does not burn them into the video, and the
+      // old wording implied the frames carried the agent's narration.
+      console.log(`  ${frames.length} frames · ${captions.size} captions recovered (not rendered) · ${probed.width}x${probed.height} · ${out.duration_s}s`);
       console.log(`  mp4 ${await fileSize(encoded.mp4)}${encoded.gif ? ` · gif ${await fileSize(encoded.gif)}` : ''}`);
       console.log('');
       for (const c of checks) console.log(`  ${c.ok ? '✓' : '✗'} ${c.name}  ${c.detail}`);

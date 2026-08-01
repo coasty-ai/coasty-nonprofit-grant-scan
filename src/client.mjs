@@ -64,15 +64,21 @@ export function resolveTarget(env = process.env) {
         ? 'live' // unknown prefix: assume the expensive interpretation
         : 'none';
 
-  // "Live" means the request can actually bill: a remote host AND a billing key.
-  const isLive = !isLoopback(baseUrl) && keyKind === 'live';
-  if (isLive && env.COASTY_ALLOW_LIVE !== '1') {
+  // Destination consent depends on the HOST, not on the key. Gating it on the
+  // key kind meant a remote base URL with no key (or a sandbox key) sailed
+  // straight through to a third-party host — and the client then invented a
+  // credential to send it. Any host that is not the bundled loopback mock is
+  // an egress decision the operator has to make explicitly.
+  const isRemote = !isLoopback(baseUrl);
+  if (isRemote && env.COASTY_ALLOW_LIVE !== '1') {
     throw new CoastyError(
-      `Refusing to call ${baseUrl} with a live key. This bills a real account.\n` +
+      `Refusing to call ${baseUrl}. That is not the bundled offline mock.\n` +
         `Set COASTY_ALLOW_LIVE=1 to allow it, or unset COASTY_BASE_URL to use the offline mock.`,
       { code: 'LIVE_NOT_ALLOWED' },
     );
   }
+  // "Live" means the request can actually bill: a remote host AND a billing key.
+  const isLive = isRemote && keyKind === 'live';
   return { baseUrl, isLive, keyKind };
 }
 
@@ -91,7 +97,18 @@ export class CoastyClient {
     const env = opts.env ?? process.env;
     const resolved = opts.baseUrl ? null : resolveTarget(env);
     this.baseUrl = (opts.baseUrl ?? resolved.baseUrl).replace(/\/+$/, '');
-    this.apiKey = opts.apiKey ?? env.COASTY_API_KEY ?? 'sk-coasty-test-offline';
+    // The bundled mock ignores the key, so a fresh clone needs no account. A
+    // REMOTE host never gets a placeholder: fabricating `sk-coasty-test-offline`
+    // for an unset key shipped a made-up credential to a third-party host.
+    const supplied = opts.apiKey ?? (env.COASTY_API_KEY?.trim() || '');
+    this.apiKey = supplied || (isLoopback(this.baseUrl) ? 'sk-coasty-test-offline' : '');
+    if (!this.apiKey) {
+      throw new CoastyError(
+        `No COASTY_API_KEY set for ${this.baseUrl}.\n` +
+          `Set one, or unset COASTY_BASE_URL to use the offline mock.`,
+        { code: 'NO_API_KEY' },
+      );
+    }
     this.isLive = opts.baseUrl ? !isLoopback(this.baseUrl) : resolved.isLive;
     this.timeoutMs = opts.timeoutMs ?? 60_000;
     this.maxAttempts = opts.maxAttempts ?? 4;

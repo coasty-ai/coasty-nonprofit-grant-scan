@@ -73,7 +73,7 @@ jobs:
           echo "clean"
       - name: fails closed with a live key and no opt-in
         env:
-          COASTY_API_KEY: sk-coasty-live-000000000000000000000000
+          COASTY_API_KEY: sk-coasty-live-zzzzzzzzzzzzzzzzzzzzzzzz
           COASTY_BASE_URL: https://coasty.ai/v1
         run: |
           set +e

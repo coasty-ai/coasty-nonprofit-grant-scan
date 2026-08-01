@@ -81,11 +81,15 @@ The prompt is the automation, so it carries the whole contract:
 
 ## Never do these
 
-- Add a credential, cookie, token or password to `automation.json`. Every unit
-  in this catalog targets a public site.
+- Add a real credential, cookie, token or password to `automation.json`. Every unit
+  targets a publicly reachable site. The single exception is a site that publishes
+  throwaway demo credentials on its own login page for exactly this purpose (e.g.
+  `saucedemo.com`); using those is intended, and the README must say plainly that
+  they are published test credentials, not real ones.
 - Default any base URL to production.
-- Commit anything under `media/` except `poster.jpg` — video is regenerable and
-  binaries bloat a repo permanently.
+- Commit anything under `media/` beyond what `.gitignore` allowlists (`demo.gif`
+  and `poster.jpg` — the two artifacts a reader actually sees). The mp4 is larger,
+  GitHub will not render it inline from a repo path, and video is regenerable.
 - Weaken a check in `assertVideoSane` to make a run pass. A failing check means
   the video misrepresents the run.
 - Retry a POST without an `Idempotency-Key`; it can provision a second machine

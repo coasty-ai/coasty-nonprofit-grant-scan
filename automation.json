@@ -14,5 +14,67 @@
   "machine": {
     "os_type": "linux",
     "desktop_enabled": true
+  },
+  "portal": {
+    "site": "Grants.gov  |  Search Grants",
+    "url": "https://www.grants.gov/search-grants",
+    "nav": [
+      "Home",
+      "Search Grants",
+      "Learn Grants",
+      "Applicants",
+      "Grantors",
+      "Support"
+    ],
+    "label": "Search Term",
+    "query": "Education",
+    "hint": "Filter Category: Education, Status: Posted (open for applications).",
+    "columns": [
+      "Opportunity Title",
+      "Close Date",
+      "Status",
+      "Agency"
+    ],
+    "total": "42",
+    "rows": [
+      [
+        "Full-Service Community Schools",
+        "Sep 04, 2026",
+        "Posted",
+        "Department of Education"
+      ],
+      [
+        "Alaska Native Education Program",
+        "Sep 11, 2026",
+        "Posted",
+        "Department of Education"
+      ],
+      [
+        "Education Innovation and Research",
+        "Sep 18, 2026",
+        "Posted",
+        "Department of Education"
+      ],
+      [
+        "Upward Bound Math and Science",
+        "Oct 02, 2026",
+        "Posted",
+        "Department of Education"
+      ],
+      [
+        "Tribal Education Department Grant",
+        "Oct 16, 2026",
+        "Posted",
+        "Department of the Interior"
+      ],
+      [
+        "Discovery Research PreK-12",
+        "Nov 05, 2026",
+        "Posted",
+        "National Science Foundation"
+      ]
+    ],
+    "answerRow": 0,
+    "answer": "42 open Education grants; 3 nearest close Sep 04, Sep 11, Sep 18 2026 (Dept. of Ed.)"
   }
 }

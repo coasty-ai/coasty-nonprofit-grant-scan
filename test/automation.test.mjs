@@ -10,7 +10,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { CoastyClient, CoastyError, resolveTarget, isLoopback, TERMINAL } from '../src/client.mjs';
 import { computeHolds, downloadFrames, hasFfmpeg, encode, probe, assertVideoSane } from '../src/capture.mjs';
-import { parseArgs, estimateCents } from '../src/cli.mjs';
+import { parseArgs, estimateCents, main } from '../src/cli.mjs';
 import { startMock } from '../tools/mock.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -19,7 +19,7 @@ const unit = JSON.parse(await readFile(path.join(ROOT, 'automation.json'), 'utf8
 let mock;
 let client;
 before(async () => {
-  mock = await startMock({ steps: 14, tickMs: 10, host: unit.target });
+  mock = await startMock({ steps: 14, tickMs: 10, unit });
   client = new CoastyClient({ baseUrl: mock.url, apiKey: 'sk-coasty-test-offline' });
 });
 after(async () => mock?.close());
@@ -47,6 +47,37 @@ describe('automation.json', () => {
 
   test('slug is a clean, stable identifier', () => {
     assert.match(unit.slug, /^[a-z0-9]+(-[a-z0-9]+)*$/);
+  });
+});
+
+describe('README', () => {
+  // The README is the only thing most people will ever read, so a prompt shown
+  // there that is not the prompt that actually runs is a straightforward lie.
+  // Nothing caught this until a README drifted by three words.
+  const norm = (s) => s.replace(/\s+/g, ' ').trim();
+  let readme;
+  before(async () => {
+    readme = await readFile(path.join(ROOT, 'README.md'), 'utf8');
+  });
+
+  test('quotes the real prompt verbatim (whitespace-insensitive)', () => {
+    assert.ok(
+      norm(readme).includes(norm(unit.task)),
+      'README must quote automation.json\'s task exactly — reflow is fine, edits are not',
+    );
+  });
+
+  test('embeds the demo hero and names its own repo', () => {
+    assert.ok(readme.includes('media/demo.gif'), 'README must embed the demo gif');
+    assert.ok(readme.includes(`coasty-${unit.slug}`), 'badges/clone URL must name this repo');
+  });
+
+  test('states the correct worst-case cost', () => {
+    const worst = estimateCents(unit).worstCase;
+    assert.ok(
+      readme.includes(`--confirm-cost-cents ${worst}`),
+      `README must show the real worst case (${worst}) in its --confirm-cost-cents example`,
+    );
   });
 });
 
@@ -100,13 +131,113 @@ describe('resolveTarget', () => {
     assert.equal(t.isLive, true);
   });
 
-  test('a sandbox key against a remote host never counts as live', () => {
-    const t = resolveTarget({ COASTY_BASE_URL: 'https://coasty.ai/v1', COASTY_API_KEY: 'sk-coasty-test-aaaa' });
+  // Destination consent is about the HOST, not the key. Gating it on the key
+  // kind let a sandbox key — or no key at all — reach a remote host unchallenged.
+  test('a sandbox key against a remote host is still refused without opt-in', () => {
+    assert.throws(
+      () => resolveTarget({ COASTY_BASE_URL: 'https://coasty.ai/v1', COASTY_API_KEY: 'sk-coasty-test-aaaa' }),
+      (e) => e.code === 'LIVE_NOT_ALLOWED',
+    );
+  });
+
+  test('a remote host with no key at all is refused', () => {
+    assert.throws(
+      () => resolveTarget({ COASTY_BASE_URL: 'https://coasty.ai/v1' }),
+      (e) => e.code === 'LIVE_NOT_ALLOWED',
+    );
+  });
+
+  test('a sandbox key never counts as live once the destination is allowed', () => {
+    const t = resolveTarget({
+      COASTY_BASE_URL: 'https://coasty.ai/v1',
+      COASTY_API_KEY: 'sk-coasty-test-aaaa',
+      COASTY_ALLOW_LIVE: '1',
+    });
     assert.equal(t.isLive, false);
+  });
+
+  test('an allowed remote host with no key refuses instead of inventing one', () => {
+    // The client used to substitute a made-up `sk-coasty-test-offline` and send
+    // it to whatever host was configured.
+    assert.throws(
+      () => new CoastyClient({ env: { COASTY_BASE_URL: 'https://coasty.ai/v1', COASTY_ALLOW_LIVE: '1' } }),
+      (e) => e.code === 'NO_API_KEY',
+    );
+  });
+
+  test('the offline mock still needs no key', () => {
+    const c = new CoastyClient({ env: {} });
+    assert.ok(isLoopback(c.baseUrl));
+    assert.equal(c.apiKey, 'sk-coasty-test-offline');
   });
 
   test('an unparseable base URL is treated as remote, not loopback', () => {
     assert.equal(isLoopback('not a url'), false);
+  });
+});
+
+// ── cost consent cannot be skipped by omitting --live ────────────────────────
+
+describe('cost consent', () => {
+  // The gate used to key off the --live FLAG while the target went live off the
+  // ENV, so `npm start` under a live COASTY_BASE_URL submitted a real billable
+  // run with no confirmation. 192.0.2.0/24 is RFC 5737 TEST-NET-1: unroutable,
+  // so a regression here stalls rather than spending anything.
+  const LIVE_ENV = {
+    COASTY_BASE_URL: 'http://192.0.2.1:9/v1',
+    // Deliberately non-hex so CI's secret-shaped-material guard does not fire.
+    COASTY_API_KEY: 'sk-coasty-live-zzzzzzzzzzzzzzzz',
+    COASTY_ALLOW_LIVE: '1',
+  };
+  let saved;
+  const quiet = async (fn) => {
+    const { log, error } = console;
+    console.log = console.error = () => {};
+    try {
+      return await fn();
+    } finally {
+      Object.assign(console, { log, error });
+    }
+  };
+  before(() => {
+    saved = { ...process.env };
+    Object.assign(process.env, LIVE_ENV);
+  });
+  after(() => {
+    for (const k of Object.keys(LIVE_ENV)) delete process.env[k];
+    Object.assign(process.env, saved);
+  });
+
+  test('`run` against a live target refuses without --confirm-cost-cents', async () => {
+    assert.equal(await quiet(() => main(['run'])), 2);
+  });
+
+  test('`run --live` with the wrong confirmed amount is refused', async () => {
+    assert.equal(await quiet(() => main(['run', '--live', '--confirm-cost-cents', '5'])), 2);
+  });
+});
+
+// ── the CLI refuses malformed invocations cleanly ────────────────────────────
+
+describe('command dispatch', () => {
+  const quiet = async (fn) => {
+    const { log, error } = console;
+    console.log = console.error = () => {};
+    try {
+      return await fn();
+    } finally {
+      Object.assign(console, { log, error });
+    }
+  };
+
+  test('an unknown subcommand is refused, not silently treated as `demo`', async () => {
+    // `demo` writes media/demo.gif + poster.jpg, both tracked, so a typo used to
+    // overwrite the committed README hero.
+    assert.equal(await quiet(() => main(['frobnicate'])), 2);
+  });
+
+  test('a flag missing its value exits 2 rather than throwing a stack trace', async () => {
+    assert.equal(await quiet(() => main(['demo', '--out'])), 2);
   });
 });
 

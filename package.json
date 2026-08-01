@@ -1,15 +1,24 @@
 {
   "name": "coasty-nonprofit-grant-scan",
   "version": "1.0.0",
-  "description": "An AI agent that finds open federal grants in your field and reports which deadlines are closest.",
+  "description": "An AI agent that opens the federal grant portal, finds what is open in your field, and reports which deadlines are closest — then films itself doing it.",
   "keywords": [
     "coasty",
     "computer-use",
     "ai-agent",
     "browser-automation",
     "rpa",
-    "nonprofit",
-    "nonprofit-grant-scan"
+    "llm",
+    "automation",
+    "web-automation",
+    "agentic-ai",
+    "no-code-scraping",
+    "web-scraping",
+    "scraping",
+    "playwright-alternative",
+    "zero-dependency",
+    "nodejs",
+    "nonprofit"
   ],
   "homepage": "https://github.com/coasty-ai/coasty-nonprofit-grant-scan",
   "repository": {

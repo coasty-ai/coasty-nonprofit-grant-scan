@@ -10,17 +10,21 @@
 [![Runs offline](https://img.shields.io/badge/runs%20offline-%240.00-blue)](#try-it-in-30-seconds)
 [![License](https://img.shields.io/badge/license-MIT-black)](LICENSE)
 
-<img src="media/demo.gif" alt="The agent searching the federal grant portal and reading close dates" width="820">
+<img src="media/demo.gif" alt="Demo clip rendered by the bundled offline mock through the frame-capture pipeline" width="820">
 
-<sub>Every frame above is a **real screenshot the model actually saw** — pulled from the run's own model-input frames, not a reconstruction.</sub>
+<sub>The clip above is rendered by the **bundled offline mock**, so a fresh clone has a hero with no key and no spend. Run `npm run demo` against live Coasty and the same pipeline rebuilds it from the run's own model-input frames — the exact images the model saw.</sub>
 
 </div>
 
 ---
 
+- **Zero dependencies.** No `npm install`, no lockfile, no supply chain — pure Node built-ins.
+- **Runs offline for $0.** No API key, no account. A bundled in-process mock runs the full agent loop on a fresh clone.
+- **The demo video renders itself.** The frames come straight out of the run — against live Coasty they are the model's own input frames, so there is no storyboard that can drift.
+
 ## What this is
 
-A complete, production-grade [Coasty](https://coasty.ai) computer-use automation for **grant opportunity deadline scanning**. It gives an AI agent one goal in plain English, and the agent drives a real browser on a real cloud desktop to accomplish it — no selectors, no scraping rules, no DOM parsing to maintain.
+A complete, runnable [Coasty](https://coasty.ai) computer-use automation for **grant opportunity deadline scanning**. It gives an AI agent one goal in plain English, and the agent drives a real browser on a real cloud desktop to accomplish it — no selectors, no scraping rules, no DOM parsing to maintain.
 
 A grant deadline is the least forgiving date a nonprofit has. Miss a close date on a federal opportunity and the next window is usually a year out, so somebody on the development team opens the portal, re-applies the same filters, and re-reads the same list every week. It is exactly the work that gets skipped in a busy month, and skipping it is what costs a funding cycle.
 
@@ -33,10 +37,11 @@ The usual fix is a scraper, and the usual outcome is a scraper that breaks. Fund
  opportunities in the Education category that are currently open for
  applications — forecasted, closed and archived listings do not count.
  Determine how many open Education opportunities there are in total, then
- identify the three whose close date is nearest. Report the total count, and
- for each of those three the opportunity title, the funding agency offering
- it, and its close date. Stop once you have reported the count and all three;
- if there are no open Education opportunities, report that instead."
+ identify the three whose close date is nearest. Report the total count,
+ and for each of those three the opportunity title, the funding agency
+ offering it, and its close date. Stop once you have reported the count and
+ all three; if there are no open Education opportunities, report that
+ instead."
 ```
 
 That prompt *is* the automation. When the site redesigns, the prompt still works. Swap `Education` for `Health`, or the URL for a state portal, and you have a different scan without touching a line of code.
@@ -125,7 +130,7 @@ src/capture.mjs      model-input frames → mp4/gif/poster, with sanity checks
 src/cli.mjs          run · demo · estimate
 tools/mock.mjs       the bundled offline Coasty (real 1280×720 PNG frames)
 tools/doctor.mjs     preflight
-test/                25 tests, zero dependencies, fully offline
+test/                36 tests, zero dependencies, fully offline
 ```
 
 Adding a new automation is one `automation.json` and one prompt — `src/` never forks. See [AGENTS.md](AGENTS.md) for the authoring contract used by Claude Code and Codex.
@@ -138,7 +143,7 @@ npm test     # node --test, no install, no network, no key
 
 ## Related
 
-Part of the **Coasty automation catalog** — production-grade computer-use automations across 12 industries. See [the index](https://github.com/coasty-ai) for finance, healthcare, legal, logistics, energy, public sector, HR, education, manufacturing, retail and e-commerce.
+Part of the **Coasty automation catalog** — computer-use automations across 12 industries. See [the index](https://github.com/coasty-ai) for finance, healthcare, legal, logistics, energy, public sector, HR, education, manufacturing, retail and e-commerce.
 
 - [Coasty docs](https://coasty.ai/docs) · [API reference](https://coasty.ai/docs/llms.txt)
 - [computer-use-cookbook](https://github.com/coasty-ai/computer-use-cookbook) — the API, by endpoint, in 4 languages
