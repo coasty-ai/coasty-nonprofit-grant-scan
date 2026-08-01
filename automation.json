@@ -1,0 +1,18 @@
+{
+  "slug": "nonprofit-grant-scan",
+  "title": "Nonprofit — grant opportunity deadline scan",
+  "vertical": "Nonprofit",
+  "niche": "grant opportunity deadline scan",
+  "target": "www.grants.gov",
+  "publicTarget": true,
+  "task": "Go to https://www.grants.gov/search-grants and find the federal grant opportunities in the Education category that are currently open for applications — forecasted, closed and archived listings do not count. Determine how many open Education opportunities there are in total, then identify the three whose close date is nearest. Report the total count, and for each of those three the opportunity title, the funding agency offering it, and its close date. Stop once you have reported the count and all three; if there are no open Education opportunities, report that instead.",
+  "expectedSteps": 15,
+  "maxSteps": 24,
+  "capCents": 121,
+  "cuaVersion": "v5",
+  "deadlineSeconds": 900,
+  "machine": {
+    "os_type": "linux",
+    "desktop_enabled": true
+  }
+}

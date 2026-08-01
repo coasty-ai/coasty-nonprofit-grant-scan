@@ -1,0 +1,85 @@
+name: CI
+
+on:
+  push: { branches: [main] }
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: test (node ${{ matrix.node }}, ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        node: ['20', '22', '24']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '${{ matrix.node }}' }
+      # No `npm ci`: this repo has zero dependencies, by design.
+      - run: node --test test/*.test.mjs
+
+  demo:
+    # ffmpeg is preinstalled on ubuntu runners but NOT reliably on windows,
+    # so the render job is ubuntu-pinned. It proves the video pipeline end to
+    # end against the offline mock — no key, no network, no spend.
+    name: render demo (offline)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '24' }
+      - run: ffmpeg -version | head -1
+      - run: node src/cli.mjs demo --json --out "$RUNNER_TEMP/demo" | tee "$RUNNER_TEMP/demo.json"
+      - name: every sanity check must pass
+        run: |
+          node -e '
+            const r = require("fs").readFileSync(process.env.RUNNER_TEMP + "/demo.json", "utf8");
+            const j = JSON.parse(r.trim().split("\n").pop());
+            const bad = j.checks.filter(c => !c.ok);
+            if (bad.length) { console.error("failed:", bad); process.exit(1); }
+            if (j.frames < 2) { console.error("too few frames:", j.frames); process.exit(1); }
+            console.log(`ok — ${j.frames} frames, ${j.duration_s}s, ${j.checks.length} checks green`);
+          '
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: demo-video
+          path: ${{ runner.temp }}/demo
+          retention-days: 14
+
+  guard:
+    name: safety guards
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '24' }
+      - name: no secrets committed
+        run: |
+          if grep -rInE 'sk-coasty-(live|test)-[0-9a-f]{8}|whsec_[0-9a-zA-Z]{8}' \
+               --exclude-dir=.git --exclude=.env.example . ; then
+            echo "::error::secret-shaped material found in the tree"; exit 1
+          fi
+          echo "clean"
+      - name: fails closed with a live key and no opt-in
+        env:
+          COASTY_API_KEY: sk-coasty-live-000000000000000000000000
+          COASTY_BASE_URL: https://coasty.ai/v1
+        run: |
+          set +e
+          out=$(node src/cli.mjs run 2>&1); code=$?
+          set -e
+          echo "$out"
+          [ $code -ne 0 ] || { echo "::error::a live target must not run without COASTY_ALLOW_LIVE"; exit 1; }
+          echo "$out" | grep -q LIVE_NOT_ALLOWED || { echo "::error::wrong failure mode"; exit 1; }
+          echo "correctly refused"

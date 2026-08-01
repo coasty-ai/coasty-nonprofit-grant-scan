@@ -1,0 +1,33 @@
+{
+  "name": "coasty-nonprofit-grant-scan",
+  "version": "1.0.0",
+  "description": "An AI agent that finds open federal grants in your field and reports which deadlines are closest.",
+  "keywords": [
+    "coasty",
+    "computer-use",
+    "ai-agent",
+    "browser-automation",
+    "rpa",
+    "nonprofit",
+    "nonprofit-grant-scan"
+  ],
+  "homepage": "https://github.com/coasty-ai/coasty-nonprofit-grant-scan",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/coasty-ai/coasty-nonprofit-grant-scan.git"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=20.11"
+  },
+  "scripts": {
+    "start": "node src/cli.mjs run",
+    "demo": "node src/cli.mjs demo",
+    "estimate": "node src/cli.mjs estimate",
+    "test": "node --test test/*.test.mjs",
+    "mock": "node tools/mock.mjs",
+    "doctor": "node tools/doctor.mjs"
+  },
+  "license": "MIT",
+  "private": false
+}

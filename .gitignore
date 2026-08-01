@@ -1,0 +1,7 @@
+node_modules/
+media/*
+!media/.gitkeep
+!media/poster.jpg
+*.log
+.env
+.DS_Store
