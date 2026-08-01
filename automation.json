@@ -16,7 +16,12 @@
     "desktop_enabled": true
   },
   "portal": {
-    "site": "Grants.gov  |  Search Grants",
+    "theme": {
+      "bar": [17, 46, 81],
+      "accent": [0, 94, 162]
+    },
+    "site": "GRANTS.GOV",
+    "sub": "Search Grants - federal funding from 26 agencies",
     "url": "https://www.grants.gov/search-grants",
     "nav": [
       "Home",
@@ -24,57 +29,144 @@
       "Learn Grants",
       "Applicants",
       "Grantors",
+      "Connect",
       "Support"
     ],
-    "label": "Search Term",
-    "query": "Education",
-    "hint": "Filter Category: Education, Status: Posted (open for applications).",
-    "columns": [
-      "Opportunity Title",
-      "Close Date",
-      "Status",
-      "Agency"
-    ],
-    "total": "42",
-    "rows": [
-      [
-        "Full-Service Community Schools",
-        "Sep 04, 2026",
-        "Posted",
-        "Department of Education"
-      ],
-      [
-        "Alaska Native Education Program",
-        "Sep 11, 2026",
-        "Posted",
-        "Department of Education"
-      ],
-      [
-        "Education Innovation and Research",
-        "Sep 18, 2026",
-        "Posted",
-        "Department of Education"
-      ],
-      [
-        "Upward Bound Math and Science",
-        "Oct 02, 2026",
-        "Posted",
-        "Department of Education"
-      ],
-      [
-        "Tribal Education Department Grant",
-        "Oct 16, 2026",
-        "Posted",
-        "Department of the Interior"
-      ],
-      [
-        "Discovery Research PreK-12",
-        "Nov 05, 2026",
-        "Posted",
-        "National Science Foundation"
-      ]
-    ],
-    "answerRow": 0,
-    "answer": "42 open Education grants; 3 nearest close Sep 04, Sep 11, Sep 18 2026 (Dept. of Ed.)"
+    "answer": "42 open Education grants; 3 nearest: Alaska Native Education (Aug 24), Education Innovation and Research (Sep 04), Upward Bound Math and Science (Sep 11) - Dept. of Education",
+    "scenes": [
+      {
+        "kind": "load",
+        "steps": 1,
+        "text": "Loading Search Grants...",
+        "status": "Opening the Grants.gov Search Grants page"
+      },
+      {
+        "kind": "search",
+        "steps": 3,
+        "label": "Keyword or Opportunity Number",
+        "query": "Education",
+        "hint": "Filters: Opportunity Status = Posted only. Category = Education.",
+        "button": "Search",
+        "status": "Searching Education grants with Opportunity Status limited to Posted"
+      },
+      {
+        "kind": "cards",
+        "steps": 4,
+        "url": "https://www.grants.gov/search-grants?oppStatuses=posted&cats=ED&sortby=closedate",
+        "label": "Keyword or Opportunity Number",
+        "query": "Education",
+        "cols": 3,
+        "status": "Excluding forecasted, closed and archived; sorting the 42 open results by close date",
+        "note": "Showing 1-6 of 42 open opportunities - sorted by Close Date, soonest first.",
+        "items": [
+          {
+            "title": "Alaska Native Education Program",
+            "meta": "Department of Education",
+            "value": "Aug 24, 2026",
+            "tag": "Posted"
+          },
+          {
+            "title": "Education Innovation and Research",
+            "meta": "Department of Education",
+            "value": "Sep 04, 2026",
+            "tag": "Posted"
+          },
+          {
+            "title": "Upward Bound Math and Science",
+            "meta": "Department of Education",
+            "value": "Sep 11, 2026",
+            "tag": "Posted"
+          },
+          {
+            "title": "Full-Service Community Schools",
+            "meta": "Department of Education",
+            "value": "Sep 25, 2026",
+            "tag": "Posted"
+          },
+          {
+            "title": "Teacher Quality Partnership",
+            "meta": "Department of Education",
+            "value": "Oct 09, 2026",
+            "tag": "Posted"
+          },
+          {
+            "title": "Discovery Research PreK-12",
+            "meta": "National Science Foundation",
+            "value": "Oct 23, 2026",
+            "tag": "Posted"
+          }
+        ]
+      },
+      {
+        "kind": "fields",
+        "steps": 4,
+        "url": "https://www.grants.gov/search-results-detail/358214",
+        "sub": "View Grant Opportunity - Synopsis",
+        "title": "Alaska Native Education Program",
+        "cols": 2,
+        "status": "Opening the nearest-closing opportunity to confirm its agency and close date",
+        "fields": [
+          ["Opportunity Number", "ED-GRANTS-051426-002"],
+          ["Assistance Listing", "84.356A"],
+          ["Funding Agency", "Department of Education"],
+          ["Category", "Education"],
+          ["Opportunity Status", "Posted"],
+          ["Posted Date", "May 14, 2026"],
+          ["Close Date", "Aug 24, 2026"],
+          ["Expected Awards", "12"],
+          ["Award Ceiling", "USD 2,000,000"],
+          ["Cost Sharing Required", "No"]
+        ]
+      },
+      {
+        "kind": "cards",
+        "steps": 3,
+        "url": "https://www.grants.gov/search-grants?oppStatuses=posted&cats=ED&sortby=closedate",
+        "label": "Keyword or Opportunity Number",
+        "query": "Education",
+        "cols": 3,
+        "status": "Recording the three open Education opportunities with the nearest close dates",
+        "answerRow": 0,
+        "note": "42 open opportunities sorted by Close Date - the three nearest are the first three shown",
+        "items": [
+          {
+            "title": "Alaska Native Education Program",
+            "meta": "Department of Education",
+            "value": "Aug 24, 2026",
+            "tag": "Nearest"
+          },
+          {
+            "title": "Education Innovation and Research",
+            "meta": "Department of Education",
+            "value": "Sep 04, 2026",
+            "tag": "2nd"
+          },
+          {
+            "title": "Upward Bound Math and Science",
+            "meta": "Department of Education",
+            "value": "Sep 11, 2026",
+            "tag": "3rd"
+          },
+          {
+            "title": "Full-Service Community Schools",
+            "meta": "Department of Education",
+            "value": "Sep 25, 2026",
+            "tag": "Posted"
+          },
+          {
+            "title": "Teacher Quality Partnership",
+            "meta": "Department of Education",
+            "value": "Oct 09, 2026",
+            "tag": "Posted"
+          },
+          {
+            "title": "Discovery Research PreK-12",
+            "meta": "National Science Foundation",
+            "value": "Oct 23, 2026",
+            "tag": "Posted"
+          }
+        ]
+      }
+    ]
   }
 }

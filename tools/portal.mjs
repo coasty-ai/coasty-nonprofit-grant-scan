@@ -1,284 +1,237 @@
 /**
  * Offline portal renderer: turns a unit's `portal` block into a sequence of
- * 1280x720 frames that read like a real browser working through the task.
+ * 1280x720 frames that read like a real browser working through that task.
  *
  * These are the frames anyone who clones the repo and runs `npm run demo` with
- * no key will see, so they have to be a genuine demonstration — a browser
- * chrome, the real URL, a search being typed, results filling in, and the
- * answer highlighted at the end — not abstract colour blocks.
+ * no key will see, so they have to be a genuine demonstration of THAT site.
+ * A flow is a list of scenes, each drawn by the archetype the real page uses
+ * (tools/scenes.mjs) — a grid dashboard, a chemical datasheet and a storefront
+ * are not the same page with different words, and should not render as if they
+ * were.
  *
- * Zero dependencies: everything is drawn with tools/render.mjs.
+ * Zero dependencies.
  */
-import { Canvas, drawText, drawClipped, textWidth } from './render.mjs';
+import * as S from './scenes.mjs';
 
-const W = 1280;
-const H = 720;
+const { Canvas, W, H } = S;
 
-const C = {
-  chrome: [38, 40, 48],
-  chromeLight: [58, 61, 71],
-  tab: [24, 26, 32],
-  page: [255, 255, 255],
-  ink: [24, 26, 32],
-  muted: [122, 128, 140],
-  line: [226, 229, 235],
-  accent: [29, 100, 220],
-  accentSoft: [232, 240, 254],
-  headerBar: [17, 42, 88],
-  ok: [22, 128, 68],
-  okSoft: [231, 246, 236],
-  shade: [247, 248, 251],
-  caret: [29, 100, 220],
+/**
+ * Spread `total` steps across scenes by weight, guaranteeing every scene gets
+ * at least one step (a beat that never renders is a beat the author cannot see
+ * is broken) and that the LAST scene owns the final step, where the answer is
+ * revealed.
+ */
+export function planSteps(scenes, total) {
+  const weights = scenes.map((s) => Math.max(1, s.steps ?? defaultWeight(s.kind)));
+  const sum = weights.reduce((a, b) => a + b, 0);
+  let counts = weights.map((w) => Math.max(1, Math.round((w / sum) * total)));
+  // Reconcile rounding against the real step budget.
+  let drift = counts.reduce((a, b) => a + b, 0) - total;
+  for (let i = counts.length - 1; drift > 0 && i >= 0; i = i === 0 ? counts.length - 1 : i - 1) {
+    if (counts[i] > 1) {
+      counts[i]--;
+      drift--;
+    } else if (counts.every((c) => c === 1)) break;
+  }
+  while (drift < 0) {
+    counts[counts.length - 1]++;
+    drift++;
+  }
+  const plan = [];
+  let at = 1;
+  counts.forEach((c, i) => {
+    plan.push({ scene: scenes[i], from: at, to: at + c - 1 });
+    at += c;
+  });
+  return plan;
+}
+
+const defaultWeight = (kind) =>
+  ({ load: 1, login: 2, search: 3, table: 4, cards: 4, fields: 4, dashboard: 4, datasheet: 3, detail: 2 })[kind] ?? 2;
+
+/** How far through its own scene this step is, 0..1. */
+const progress = (step, from, to) => (to === from ? 1 : (step - from) / (to - from));
+
+/**
+ * Reveal n of `len` items by scene progress, all of them at the end.
+ *
+ * The floor is deliberately NOT 1. A page that draws its heading and a single
+ * row under 400px of white does not read as "rendering"; it reads as "this
+ * failed to load", and it was the single most common complaint against these
+ * demos — every multi-step scene in every unit opened on one item. So a scene's
+ * first beat already shows two thirds of the list (at least three), and each
+ * later beat adds to it. Consecutive beats can therefore repeat content: that
+ * is correct, because an agent taking several screenshots while it reads a
+ * loaded table really does see the same table each time.
+ */
+const reveal = (p, len) => {
+  if (p >= 1) return len;
+  const floor = Math.min(len, Math.max(3, Math.ceil((len * 2) / 3)));
+  return Math.min(len, floor + Math.round(p * (len - floor)));
 };
 
-/** Browser chrome: window buttons, one tab, and the address bar. */
-function chrome(cv, url, { loading = false, progress = 0 } = {}) {
-  cv.fill(0, 0, W, 84, C.chrome);
-  // window buttons
-  const dots = [[237, 106, 94], [245, 191, 79], [98, 197, 84]];
-  dots.forEach(([r, g, b], i) => cv.fill(20 + i * 22, 18, 12, 12, [r, g, b]));
-
-  // tab
-  cv.fill(96, 8, 360, 34, C.tab);
-  drawClipped(cv, new URL(url).hostname, 112, 17, 330, [214, 218, 228], 2);
-
-  // address bar
-  cv.fill(20, 50, W - 40, 26, C.chromeLight);
-  cv.fill(28, 56, 14, 14, [140, 200, 150]); // padlock-ish
-  drawClipped(cv, url, 52, 57, W - 100, [226, 230, 240], 2);
-
-  if (loading) {
-    cv.fill(0, 82, Math.round(W * Math.min(1, progress)), 3, [90, 170, 255]);
-  }
-}
-
-/** Site masthead + primary nav. */
-function masthead(cv, site, nav) {
-  cv.fill(0, 84, W, 74, C.headerBar);
-  drawText(cv, site, 40, 106, [255, 255, 255], 3);
-  let x = 40;
-  cv.fill(0, 158, W, 34, [242, 244, 248]);
-  for (const item of nav) {
-    drawText(cv, item, x, 168, [70, 82, 104], 2);
-    x += textWidth(item, 2) + 34;
-  }
-  cv.hline(0, 192, W, C.line);
-}
-
-/** Search box; `typed` characters are shown with a caret while typing. */
-function searchBox(cv, label, typed, { focused = false, submitted = false } = {}) {
-  const y = 224;
-  drawText(cv, label, 40, y, C.muted, 2);
-  const bx = 40;
-  const by = y + 26;
-  const bw = 720;
-  const bh = 42;
-  cv.fill(bx, by, bw, bh, focused ? [255, 255, 255] : C.shade);
-  // border
-  cv.fill(bx, by, bw, 2, focused ? C.accent : C.line);
-  cv.fill(bx, by + bh - 2, bw, 2, focused ? C.accent : C.line);
-  cv.fill(bx, by, 2, bh, focused ? C.accent : C.line);
-  cv.fill(bx + bw - 2, by, 2, bh, focused ? C.accent : C.line);
-
-  const tx = drawClipped(cv, typed, bx + 14, by + 13, bw - 40, C.ink, 2);
-  if (focused && !submitted) cv.fill(tx + 2, by + 10, 2, 22, C.caret);
-
-  // submit button
-  cv.fill(bx + bw + 14, by, 128, bh, submitted ? C.accent : [222, 228, 238]);
-  drawText(cv, 'Search', bx + bw + 44, by + 13, submitted ? [255, 255, 255] : [80, 90, 108], 2);
-}
-
 /**
- * Column x-positions sized from the actual content.
- *
- * A fixed grid handed 430px to a column holding "Drivers" while the carrier's
- * legal name got 324px and clipped — the layout has to follow the data, not the
- * other way round. Every column gets what its widest cell needs; if that
- * overflows the page, the surplus is taken proportionally from the widest
- * columns, so one long column cannot starve the rest.
+ * Characters typed so far. Typing is the one reveal that must start empty: a
+ * search box that opens half-filled does not read as an agent typing into it.
  */
-function layout(columns, rows) {
-  const PAD = 28;
-  const LEFT = 40;
-  const AVAIL = W - LEFT * 2;
-  const want = columns.map((c, i) =>
-    Math.max(textWidth(c, 2), ...rows.map((r) => textWidth(String(r[i] ?? ''), 2))) + PAD,
-  );
-  const total = want.reduce((a, b) => a + b, 0);
-  let widths = want;
-  if (total > AVAIL) {
-    // Shrink proportionally to how much each column exceeds an equal share.
-    const fair = AVAIL / columns.length;
-    const over = want.map((w) => Math.max(0, w - fair));
-    const overTotal = over.reduce((a, b) => a + b, 0) || 1;
-    const excess = total - AVAIL;
-    widths = want.map((w, i) => Math.max(90, Math.round(w - (over[i] / overTotal) * excess)));
-  }
-  const xs = [];
-  let x = LEFT;
-  for (const w of widths) {
-    xs.push(x);
-    x += w;
-  }
-  return { xs, widths };
-}
+const typing = (p, len) => (p >= 1 ? len : Math.max(1, Math.ceil(p * len)));
 
-/** Results table. `visible` rows are drawn; `highlight` is drawn in success green. */
-function table(cv, columns, rows, visible, { highlight = -1, note = '' } = {}) {
-  const top = 320;
-  const { xs, widths } = layout(columns, rows);
-  cv.fill(0, top, W, 34, C.shade);
-  columns.forEach((c, i) => drawClipped(cv, c, xs[i], top + 10, widths[i] - 14, [90, 98, 114], 2));
-  cv.hline(0, top + 34, W, C.line);
-
-  const rowH = 44;
-  // The status strip is up to two lines (14 + 2*20 = 54px). Reserve the worst
-  // case, plus a note line, so neither can ever be overlapped.
-  const STATUS_H = 54;
-  const NOTE_H = 24;
-  const floor = H - STATUS_H - NOTE_H;
-  const maxRows = Math.max(1, Math.floor((floor - (top + 34)) / rowH));
-
-  // Scroll so the answer is always on screen. A table taller than the viewport
-  // would otherwise hide the very row the run exists to find — which is exactly
-  // what a real browser scrolling to its result would never do.
-  const shown = Math.min(visible, rows.length);
-  const start =
-    highlight >= 0 && highlight >= maxRows
-      ? Math.min(highlight - maxRows + 1, Math.max(0, rows.length - maxRows))
-      : Math.max(0, Math.min(shown, rows.length) - maxRows) > 0 && shown > maxRows
-        ? shown - maxRows
-        : 0;
-
-  let drawn = 0;
-  for (let i = start; i < shown && drawn < maxRows; i++) {
-    const y = top + 34 + drawn * rowH;
-    drawn++;
-    const isHi = i === highlight;
-    if (isHi) cv.fill(0, y, W, rowH, C.okSoft);
-    else if (i % 2 === 1) cv.fill(0, y, W, rowH, [251, 252, 254]);
-    rows[i].forEach((cell, ci) => {
-      drawClipped(cv, cell, xs[ci], y + 14, widths[ci] - 14, isHi ? C.ok : ci === 0 ? C.ink : C.muted, 2);
-    });
-    cv.hline(0, y + rowH - 1, W, C.line);
-    if (isHi) cv.fill(0, y, 5, rowH, C.ok);
-  }
-
-  if (note) {
-    // Clamp above the status strip: glyphs are 8 rows at scale 2 = 16px tall,
-    // and the note used to be sliced in half by the bar on 7-row tables.
-    const ny = Math.min(H - STATUS_H - 20, top + 34 + drawn * rowH + 4);
-    drawText(cv, note, 40, ny, C.muted, 2);
-  }
-}
-
-/** Greedy word wrap to a pixel width. */
-function wrap(text, maxW, scale) {
-  const words = String(text).split(/\s+/).filter(Boolean);
-  const lines = [];
-  let line = '';
-  for (const w of words) {
-    const next = line ? `${line} ${w}` : w;
-    if (line && textWidth(next, scale) > maxW) {
-      lines.push(line);
-      line = w;
-    } else {
-      line = next;
-    }
-  }
-  if (line) lines.push(line);
-  return lines;
-}
-
-/**
- * Status strip: what the agent is doing right now.
- *
- * The answer WRAPS rather than clipping. Truncating it lost the actual finding
- * — "...dearest Full Moon over Noahs Ark G" dropped the price, so the frame
- * showed half an answer to a question the prompt asked in full.
- */
-function status(cv, step, total, text) {
-  const scale = 2;
-  const lead = `step ${step}/${total}`;
-  const leadW = textWidth(lead, scale) + 18;
-  const avail = W - 16 - leadW - 16;
-  const lines = wrap(text, avail, scale).slice(0, 2);
-  const barH = 14 + lines.length * 20;
-  const top = H - barH;
-
-  cv.fill(0, top, W, barH, [17, 19, 24]);
-  drawText(cv, lead, 16, top + 8, [140, 150, 170], scale);
-  lines.forEach((l, i) => {
-    // The second line is indented under the first, past the step counter.
-    drawClipped(cv, l, 16 + leadW, top + 8 + i * 20, avail, [225, 230, 240], scale);
-  });
-  cv.fill(0, top - 3, Math.round((W * step) / Math.max(1, total)), 3, [90, 170, 255]);
-  return barH;
-}
-
-/**
- * Render one frame of the demo.
- *
- * The scene advances with `step` so consecutive frames are visibly different
- * (the capture pipeline asserts adjacent-frame distinctness) and together they
- * tell the story of the task: load → search → results → answer.
- */
 export function renderFrame(unit, step, total) {
   const p = unit.portal ?? {};
+  const C = S.theme(p.theme);
   const url = p.url ?? `https://${unit.target}`;
-  const site = p.site ?? unit.target;
-  const nav = p.nav ?? ['Home', 'Search', 'Data', 'About', 'Help'];
-  const query = p.query ?? '';
-  const columns = p.columns ?? ['Result', 'Detail', 'Date', 'Reference'];
-  const rows = p.rows ?? [];
+  const scenes = Array.isArray(p.scenes) && p.scenes.length ? p.scenes : legacyScenes(p);
+  const plan = planSteps(scenes, total);
+  const cur = plan.find((x) => step >= x.from && step <= x.to) ?? plan[plan.length - 1];
+  const sc = cur.scene;
+  const t = progress(step, cur.from, cur.to);
+  const last = step >= total;
+
   const cv = new Canvas(W, H, C.page);
 
-  // Phase boundaries, proportional to the run so any step budget looks natural.
-  const nav1 = 1;                                  // navigating
-  const typeEnd = nav1 + Math.max(2, Math.round(total * 0.25)); // typing the query
-  const submit = typeEnd + 1;                      // submitted / loading
-  const rowsEnd = total - 1;                       // results filling in
-
-  if (step <= nav1) {
-    chrome(cv, url, { loading: true, progress: 0.35 });
-    cv.fill(0, 84, W, H - 118, [252, 253, 255]);
-    drawText(cv, 'Loading...', 40, 140, C.muted, 3);
-    status(cv, step, total, `Navigating to ${new URL(url).hostname}`);
+  if (sc.kind === 'load') {
+    S.chrome(cv, C, sc.url ?? url, { loading: true, progress: 0.2 + 0.6 * t });
+    cv.fill(0, 84, W, H - 84 - S.STATUS_H, [252, 253, 255]);
+    S.drawText(cv, sc.text ?? 'Loading...', 40, 140, C.muted, 3);
+    S.status(cv, step, total, sc.status ?? `Navigating to ${hostOf(sc.url ?? url)}`);
     return cv.toPNG();
   }
 
-  chrome(cv, url);
-  masthead(cv, site, nav);
-
-  if (step <= typeEnd) {
-    const frac = (step - nav1) / Math.max(1, typeEnd - nav1);
-    const shown = query.slice(0, Math.max(1, Math.round(query.length * frac)));
-    searchBox(cv, p.label ?? 'Search', shown, { focused: true });
-    drawText(cv, p.hint ?? 'Enter a term and press Search.', 40, 300, C.muted, 2);
-    status(cv, step, total, `Typing "${shown}"`);
-    return cv.toPNG();
-  }
-
-  searchBox(cv, p.label ?? 'Search', query, { focused: false, submitted: true });
-
-  if (step === submit) {
-    drawText(cv, 'Searching...', 40, 330, C.muted, 3);
-    status(cv, step, total, 'Submitting the search');
-    return cv.toPNG();
-  }
-
-  const span = Math.max(1, rowsEnd - submit);
-  const visible = Math.min(rows.length, Math.ceil(((step - submit) / span) * rows.length));
-  const done = step >= total;
-  table(cv, columns, rows, done ? rows.length : visible, {
-    highlight: done ? (p.answerRow ?? rows.length - 1) : -1,
-    note: p.note ?? (p.total ? `${p.total} results` : ''),
+  S.chrome(cv, C, sc.url ?? url);
+  const top = S.masthead(cv, C, sc.site ?? p.site ?? unit.target, sc.nav ?? p.nav ?? [], {
+    sub: sc.sub ?? p.sub ?? '',
   });
-  status(
-    cv,
-    step,
-    total,
-    done ? p.answer ?? 'Reporting the result' : `Reading results (${Math.min(visible, rows.length)}/${rows.length})`,
-  );
+
+  switch (sc.kind) {
+    case 'login': {
+      const fs = (sc.fields ?? []).map(([label, value], i) => {
+        // Type the fields in order across the scene.
+        const share = 1 / Math.max(1, sc.fields.length);
+        const local = Math.min(1, Math.max(0, (t - i * share) / share));
+        return [label, sc.mask && i === sc.fields.length - 1
+          ? '*'.repeat(Math.round(local * String(value).length))
+          : String(value).slice(0, Math.round(local * String(value).length))];
+      });
+      const typedIdx = Math.min(sc.fields.length - 1, Math.floor(t / (1 / Math.max(1, sc.fields.length))));
+      S.login(cv, C, top, { title: sc.title, fields: fs, typedIdx: last ? -1 : typedIdx, note: sc.note });
+      S.status(cv, step, total, sc.status ?? 'Signing in with the published demo credentials');
+      return cv.toPNG();
+    }
+
+    case 'search': {
+      const typed = String(sc.query ?? '').slice(0, typing(t, String(sc.query ?? '').length));
+      S.searchBox(cv, C, top, {
+        label: sc.label,
+        typed,
+        hint: sc.hint,
+        focused: !last,
+        submitted: last,
+        button: sc.button ?? 'Search',
+      });
+      S.status(cv, step, total, sc.status ?? `Typing "${typed}"`);
+      return cv.toPNG();
+    }
+
+    case 'table': {
+      let y = top;
+      if (sc.query !== undefined) {
+        y = S.searchBox(cv, C, top, { label: sc.label, typed: sc.query, hint: '', focused: false, submitted: true, button: sc.button ?? 'Search' });
+      }
+      const rows = sc.rows ?? [];
+      S.table(cv, C, y, {
+        columns: sc.columns ?? [],
+        rows,
+        visible: reveal(t, rows.length),
+        highlight: last ? sc.answerRow ?? rows.length - 1 : -1,
+        note: sc.note ?? '',
+      });
+      break;
+    }
+
+    case 'cards': {
+      let y = top;
+      if (sc.query !== undefined) {
+        y = S.searchBox(cv, C, top, { label: sc.label, typed: sc.query, hint: '', focused: false, submitted: true, button: sc.button ?? 'Search' });
+      }
+      const items = sc.items ?? [];
+      S.cards(cv, C, y + 8, {
+        items,
+        visible: reveal(t, items.length),
+        highlight: last ? sc.answerRow ?? -1 : -1,
+        cols: sc.cols ?? 3,
+        note: sc.note ?? '',
+      });
+      break;
+    }
+
+    case 'fields': {
+      const fs = sc.fields ?? [];
+      S.fields(cv, C, top + 10, {
+        title: sc.title,
+        fields: fs,
+        visible: reveal(t, fs.length),
+        highlight: last ? sc.answerRow ?? -1 : -1,
+        cols: sc.cols ?? 2,
+      });
+      break;
+    }
+
+    case 'dashboard': {
+      const tiles = sc.tiles ?? [];
+      const series = sc.series ?? [];
+      S.dashboard(cv, C, top + 16, {
+        tiles,
+        series,
+        visible: reveal(t, tiles.length + series.length),
+        highlight: last ? sc.answerRow ?? -1 : -1,
+        note: sc.note ?? '',
+      });
+      break;
+    }
+
+    case 'datasheet': {
+      const rows = sc.rows ?? [];
+      S.datasheet(cv, C, top + 10, {
+        title: sc.title,
+        subtitle: sc.subtitle,
+        rows,
+        visible: reveal(t, rows.length),
+        highlight: last ? sc.answerRow ?? -1 : -1,
+        note: sc.note ?? '',
+      });
+      break;
+    }
+
+    default: {
+      S.drawText(cv, sc.text ?? '', 40, top + 30, C.ink, 3);
+    }
+  }
+
+  S.status(cv, step, total, last ? p.answer ?? sc.status ?? 'Reporting the result' : sc.status ?? 'Reading the page');
   return cv.toPNG();
+}
+
+const hostOf = (u) => {
+  try {
+    return new URL(u).hostname;
+  } catch {
+    return u;
+  }
+};
+
+/** Back-compat: a flat `portal` block (no `scenes`) becomes load → search → table. */
+function legacyScenes(p) {
+  return [
+    { kind: 'load' },
+    { kind: 'search', label: p.label, query: p.query, hint: p.hint },
+    {
+      kind: 'table',
+      label: p.label,
+      query: p.query,
+      columns: p.columns ?? [],
+      rows: p.rows ?? [],
+      answerRow: p.answerRow,
+      note: p.note ?? (p.total ? `${p.total} results` : ''),
+    },
+  ];
 }
