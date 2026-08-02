@@ -1,0 +1,24 @@
+{
+  "kind": "real-capture",
+  "note": "Every frame is a screenshot taken by a real browser driving real software during a real agent run.",
+  "software": "GRANTS-LEGACY Opportunity Register",
+  "task": "Sign on to this grant Opportunity Register as operator GRNT07, then from the function menu open the OPPORTUNITY SCAN function. Run a scan for category code 03 - ENVIRONMENT & ENERGY, restricted to OPEN postings only. From the selection list find the single opportunity with the LARGEST award ceiling, then pull up its Opportunity Detail record. Report: how many records the scan selected, and for that largest-ceiling opportunity its opportunity number, awarding agency, close date, award ceiling, and from the detail record its ASSISTANCE LISTING number, PROGRAM OFFICER, and whether COST SHARING is required. Quote every value exactly as the screens display it.",
+  "model": "gpt-5.2",
+  "captured_at": "2026-08-02T00:56:04.839Z",
+  "status": "succeeded",
+  "answer": "Records selected: \"007\"\n\nLargest award ceiling opportunity:\n- Opportunity number: \"DOE-EERE-2026-0087\"\n- Awarding agency: \"DOE\"\n- Close date: \"2026-10-02\"\n- Award ceiling: \"3,400,000\"\n\nFrom Opportunity Detail:\n- Assistance listing: \"81.086\"\n- Program officer: \"R. OKONKWO\"\n- Cost sharing required: \"YES - 20 PCT\"",
+  "steps_taken": 5,
+  "frames_rendered": 5,
+  "frames_captured": 5,
+  "duplicate_frames_dropped": 0,
+  "model_calls": 5,
+  "approx_usd": 0.0179,
+  "video_seconds": 15.2,
+  "frame_sha256": [
+    "ceb74f0e6155f654be1fdd5ce2f56bb9a3a478291d3b7499edbc3acd0899f32a",
+    "bb1d9a26e9b923ddfb324e098c248dc79ea5827da13b54aecba97147b896c425",
+    "0195ee6d20341566c66659fd214979e917b487f0a10cd18afd75ea5619d63535",
+    "c57724830ff8e6ce2073fa43a5cf09a1c4f31ef70292941609daf0d66ac9752b",
+    "151e60734d04763a889e52ec37972cabf98c4c8e1a859c3a98d879eb4985fa16"
+  ]
+}

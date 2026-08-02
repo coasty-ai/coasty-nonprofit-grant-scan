@@ -194,7 +194,10 @@ async function main(argv) {
       console.error('ffmpeg is required for `demo`. Run `npm run doctor` for install hints.');
       return 4;
     }
-    const outDir = flags.out ? path.resolve(String(flags.out)) : path.join(ROOT, 'media');
+    // The committed media/ hero is a real capture of a real agent run (see
+    // media/capture.json). An offline mock render must not overwrite it, so it
+    // lands in media/local/ unless --out says otherwise.
+    const outDir = flags.out ? path.resolve(String(flags.out)) : path.join(ROOT, 'media', 'local');
     const { frames, skipped } = await downloadFrames(client, run.id);
     if (frames.length === 0) {
       console.error('No model-input frames were captured for this run.');

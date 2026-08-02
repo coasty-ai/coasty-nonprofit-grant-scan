@@ -3,9 +3,11 @@ node_modules/
 # sees are tracked: the README hero (gif) and its poster. The mp4 is larger and
 # GitHub will not render it inline from a repo path, so it stays local.
 media/*
+!media/capture.json
 !media/.gitkeep
 !media/demo.gif
 !media/poster.jpg
+media/local/
 *.log
 .env
 .DS_Store
