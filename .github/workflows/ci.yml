@@ -26,7 +26,9 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: '${{ matrix.node }}' }
       # No `npm ci`: this repo has zero dependencies, by design.
-      - run: node --test test/*.test.mjs
+      # Not a glob: PowerShell does not expand it and node <22 does not glob
+      # internally, so `test/*.test.mjs` fails on windows + node 20.
+      - run: node --test test/automation.test.mjs
 
   demo:
     # ffmpeg is preinstalled on ubuntu runners but NOT reliably on windows,
@@ -38,6 +40,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: '24' }
+      - name: install ffmpeg
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
       - run: ffmpeg -version | head -1
       - run: node src/cli.mjs demo --json --out "$RUNNER_TEMP/demo" | tee "$RUNNER_TEMP/demo.json"
       - name: every sanity check must pass

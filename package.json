@@ -33,7 +33,7 @@
     "start": "node src/cli.mjs run",
     "demo": "node src/cli.mjs demo",
     "estimate": "node src/cli.mjs estimate",
-    "test": "node --test test/*.test.mjs",
+    "test": "node --test test/automation.test.mjs",
     "mock": "node tools/mock.mjs",
     "doctor": "node tools/doctor.mjs"
   },
