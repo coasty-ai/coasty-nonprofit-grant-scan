@@ -1,0 +1,75 @@
+name: heartbeat
+
+# Runs on a schedule to prove the repo still works and to refresh anything that
+# genuinely goes stale. It commits ONLY when a real artifact changed — a repo
+# whose history is full of no-op "keepalive" commits looks abandoned-and-faked,
+# not maintained. Silence here means everything still passes.
+on:
+  schedule:
+    # 07:11 UTC daily. Offset minute so the whole catalog does not stampede
+    # GitHub's scheduler at :00 (which is also when runners are most contended).
+    - cron: '11 7 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: heartbeat-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  verify:
+    name: still works
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '24' }
+      - name: install ffmpeg
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+
+      - name: tests
+        run: node --test test/automation.test.mjs
+
+      - name: the automation still runs offline
+        run: node src/cli.mjs run
+
+      - name: the demo still renders, with every sanity check green
+        run: |
+          node src/cli.mjs demo --json --out "$RUNNER_TEMP/hb" | tee "$RUNNER_TEMP/hb.json"
+          node -e '
+            const j = JSON.parse(require("fs").readFileSync(process.env.RUNNER_TEMP + "/hb.json", "utf8").trim().split("\n").pop());
+            const bad = j.checks.filter(c => !c.ok);
+            if (bad.length) { console.error("failed:", bad.map(b => b.name)); process.exit(1); }
+            console.log(`ok - ${j.frames} frames, ${j.duration_s}s`);
+          '
+
+      - name: spend guards still refuse a remote target
+        env:
+          COASTY_API_KEY: sk-coasty-live-zzzzzzzzzzzzzzzzzzzzzzzz
+          COASTY_BASE_URL: https://coasty.ai/v1
+        run: |
+          set +e; out=$(node src/cli.mjs run 2>&1); code=$?; set -e
+          [ $code -ne 0 ] && echo "$out" | grep -q LIVE_NOT_ALLOWED \
+            && echo "correctly refused" \
+            || { echo "::error::spend guard regressed"; exit 1; }
+
+      - name: open an issue if the heartbeat failed
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = 'Heartbeat failed';
+            const { data: open } = await github.rest.issues.listForRepo({
+              ...context.repo, state: 'open', labels: 'heartbeat',
+            });
+            const body = `The scheduled heartbeat failed on ${new Date().toISOString().slice(0,10)}.\n\n` +
+              `Run: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}\n\n` +
+              `This job only runs what a fresh clone runs, so a failure here means the repo is broken for everyone.`;
+            if (open.length) {
+              await github.rest.issues.createComment({ ...context.repo, issue_number: open[0].number, body });
+            } else {
+              await github.rest.issues.create({ ...context.repo, title, body, labels: ['heartbeat'] });
+            }

@@ -107,8 +107,9 @@ production without explicit opt-in.
 
 ## API reference
 
-The contract lives at <https://coasty.ai/docs/llms.txt>. The endpoints this repo
-uses:
+The contract lives at <https://coasty.ai/docs/llms.txt>. Keys are created at
+<https://coasty.ai/developers/keys> — shown once at creation, and a
+`sk-coasty-test-` sandbox key never bills. The endpoints this repo uses:
 
 | Endpoint | Purpose | Cost |
 |---|---|---|

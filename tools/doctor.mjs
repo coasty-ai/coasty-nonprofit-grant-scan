@@ -33,5 +33,11 @@ else if (key.startsWith('sk-coasty-live-')) {
     : ok('live key, offline target', 'fail-closed: requests go to the mock');
 } else warn('unrecognised COASTY_API_KEY prefix', 'Treated as live (the expensive interpretation).');
 
+// Someone running doctor with no key is usually deciding whether they can run
+// this for real. Tell them where a key comes from rather than leaving a dead end.
+if (!key) {
+  console.log(`\n  Need a key to run for real?  \x1b[36mhttps://coasty.ai/developers/keys\x1b[0m`);
+  console.log(`  A \x1b[36msk-coasty-test-\x1b[0m sandbox key never bills.`);
+}
 console.log(`\n  Run offline now:  \x1b[36mnpm start\x1b[0m`);
 console.log(`  Render a demo:    \x1b[36mnpm run demo\x1b[0m\n`);

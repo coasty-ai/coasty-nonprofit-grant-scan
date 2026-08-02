@@ -72,6 +72,16 @@ describe('README', () => {
     assert.ok(readme.includes(`coasty-${unit.slug}`), 'badges/clone URL must name this repo');
   });
 
+  test('says where to get an API key', () => {
+    // The README is where someone decides whether they can actually run this.
+    // Telling them to set COASTY_API_KEY without saying where one comes from
+    // is a dead end, and every README had exactly that gap.
+    assert.ok(
+      readme.includes('https://coasty.ai/developers/keys'),
+      'README must link https://coasty.ai/developers/keys so a reader can obtain a key',
+    );
+  });
+
   test('states the correct worst-case cost', () => {
     const worst = estimateCents(unit).worstCase;
     assert.ok(

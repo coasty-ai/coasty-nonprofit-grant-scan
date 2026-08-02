@@ -68,8 +68,17 @@ Check your setup any time with `npm run doctor`.
 
 ## Run it for real
 
+**1. Get a Coasty API key** — create one at **<https://coasty.ai/developers/keys>**.
+The raw key is shown *once*, at creation, so save it when it appears.
+A `sk-coasty-test-…` **sandbox** key never bills and is enough to try this;
+a `sk-coasty-live-…` key bills your wallet. A new key already carries the
+`runs:read` and `runs:write` scopes this automation needs, so there is
+nothing extra to enable.
+
+**2. Give both consents, then run:**
+
 ```bash
-export COASTY_API_KEY=sk-coasty-test-...      # sandbox keys never bill
+export COASTY_API_KEY=sk-coasty-test-...      # from the link above
 export COASTY_BASE_URL=https://coasty.ai/v1
 export COASTY_ALLOW_LIVE=1                     # destination consent
 npm start -- --live --confirm-cost-cents 120   # cost consent
