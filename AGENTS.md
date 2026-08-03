@@ -61,7 +61,7 @@ Edit `automation.json`. Nothing else. The fields that matter:
   A test asserts both properties.
 - `expectedSteps` / `maxSteps` — the agent's step budget. `maxSteps × 5¢` is the
   worst case and must stay `<= capCents`; a test asserts this.
-- `target` — the host. **Must be publicly reachable with no credentials.**
+- `target` — the system the agent drives, named verbatim in `task`. A test asserts it.
 
 Then run `npm test && npm start`. If the prompt changed, the idempotency key
 changes with it, so the next live run is a genuinely new run.
@@ -81,11 +81,9 @@ The prompt is the automation, so it carries the whole contract:
 
 ## Never do these
 
-- Add a real credential, cookie, token or password to `automation.json`. Every unit
-  targets a publicly reachable site. The single exception is a site that publishes
-  throwaway demo credentials on its own login page for exactly this purpose (e.g.
-  `saucedemo.com`); using those is intended, and the README must say plainly that
-  they are published test credentials, not real ones.
+- Add a real credential, cookie, token or password to `automation.json`. A sign-on to a
+  simulated legacy system using an operator ID that system displays itself is fine and
+  is what these demos do; a credential to anything real is not.
 - Default any base URL to production.
 - Commit anything under `media/` beyond what `.gitignore` allowlists (`demo.gif`
   and `poster.jpg` — the two artifacts a reader actually sees). The mp4 is larger,

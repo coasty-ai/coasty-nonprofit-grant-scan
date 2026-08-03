@@ -26,7 +26,7 @@ no script and no answer key. Provenance and per-frame hashes in <a href="media/c
 
 ## What this is
 
-A complete, runnable [Coasty](https://coasty.ai) computer-use automation for **grant opportunity deadline scanning**. It gives an AI agent one goal in plain English, and the agent drives a real browser on a real cloud desktop to accomplish it — no selectors, no scraping rules, no DOM parsing to maintain.
+A complete, runnable [Coasty](https://coasty.ai) computer-use automation for **grant opportunity deadline scanning**. It gives an AI agent one goal in plain English, and the agent drives a real browser to accomplish it — here, the GRANTS-LEGACY Opportunity Register — no selectors, no scraping rules, no DOM parsing to maintain.
 
 A grant deadline is the least forgiving date a nonprofit has. Miss a close date on a federal opportunity and the next window is usually a year out, so somebody on the development team opens the portal, re-applies the same filters, and re-reads the same list every week. It is exactly the work that gets skipped in a busy month, and skipping it is what costs a funding cycle.
 
@@ -35,15 +35,16 @@ The usual fix is a scraper, and the usual outcome is a scraper that breaks. Fund
 **Zero dependencies. Runs offline for $0 on a fresh clone. ~$0.75 to run for real.**
 
 ```
-"Go to https://www.grants.gov/search-grants and find the federal grant
- opportunities in the Education category that are currently open for
- applications — forecasted, closed and archived listings do not count.
- Determine how many open Education opportunities there are in total, then
- identify the three whose close date is nearest. Report the total count,
- and for each of those three the opportunity title, the funding agency
- offering it, and its close date. Stop once you have reported the count and
- all three; if there are no open Education opportunities, report that
- instead."
+"Sign on to this grant Opportunity Register as operator GRNT07, then from
+ the function menu open the OPPORTUNITY SCAN function. Run a scan for
+ category code 03 - ENVIRONMENT & ENERGY, restricted to OPEN postings only.
+ From the selection list find the single opportunity with the LARGEST award
+ ceiling, then pull up its Opportunity Detail record. Report: how many
+ records the scan selected, and for that largest-ceiling opportunity its
+ opportunity number, awarding agency, close date, award ceiling, and from
+ the detail record its ASSISTANCE LISTING number, PROGRAM OFFICER, and
+ whether COST SHARING is required. Quote every value exactly as the screens
+ display it."
 ```
 
 That prompt *is* the automation. When the site redesigns, the prompt still works. Swap `Education` for `Health`, or the URL for a state portal, and you have a different scan without touching a line of code.
@@ -128,7 +129,9 @@ This repo is built so that **accidental spend is structurally impossible**, not 
 - **Two independent consents.** `COASTY_ALLOW_LIVE=1` authorises the *destination*; `--confirm-cost-cents N` authorises the *cost*, and N must equal the server-computed worst case exactly.
 - **Idempotency by default.** The submit key is derived from the prompt, so a retried submit returns the original run instead of provisioning a second machine.
 - **A hard cap per unit.** A worst case above `capCents` in [`automation.json`](automation.json) is refused before any request is made.
-- **No credentials, ever.** This automation targets a public site. Nothing here reads a password, a token, or a cookie.
+- **No real credentials.** The captured demo signs on to a simulated legacy system with a
+  throwaway operator ID that the system itself displays. Nothing here reads a real
+  password, token or cookie, and no secret is stored in this repo.
 
 ## Project layout
 

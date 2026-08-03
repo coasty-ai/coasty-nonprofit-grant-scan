@@ -45,6 +45,18 @@ describe('automation.json', () => {
     assert.ok(unit.expectedSteps <= unit.maxSteps);
   });
 
+  test('the prompt is the one the demo actually ran', async () => {
+    // README==automation.json is not enough: both can agree with each other
+    // and still disagree with the video sitting next to them, which is exactly
+    // what happened across all 12 repos.
+    const cap = JSON.parse(await readFile(path.join(ROOT, 'media', 'capture.json'), 'utf8'));
+    assert.equal(
+      unit.task.replace(/\s+/g, ' ').trim(),
+      cap.task.replace(/\s+/g, ' ').trim(),
+      'automation.json task must equal the task the captured demo ran',
+    );
+  });
+
   test('slug is a clean, stable identifier', () => {
     assert.match(unit.slug, /^[a-z0-9]+(-[a-z0-9]+)*$/);
   });

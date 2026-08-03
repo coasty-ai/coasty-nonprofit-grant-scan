@@ -3,9 +3,9 @@
   "title": "Nonprofit — grant opportunity deadline scan",
   "vertical": "Nonprofit",
   "niche": "grant opportunity deadline scan",
-  "target": "www.grants.gov",
-  "publicTarget": true,
-  "task": "Go to https://www.grants.gov/search-grants and find the federal grant opportunities in the Education category that are currently open for applications — forecasted, closed and archived listings do not count. Determine how many open Education opportunities there are in total, then identify the three whose close date is nearest. Report the total count, and for each of those three the opportunity title, the funding agency offering it, and its close date. Stop once you have reported the count and all three; if there are no open Education opportunities, report that instead.",
+  "target": "Opportunity Register",
+  "publicTarget": false,
+  "task": "Sign on to this grant Opportunity Register as operator GRNT07, then from the function menu open the OPPORTUNITY SCAN function. Run a scan for category code 03 - ENVIRONMENT & ENERGY, restricted to OPEN postings only. From the selection list find the single opportunity with the LARGEST award ceiling, then pull up its Opportunity Detail record. Report: how many records the scan selected, and for that largest-ceiling opportunity its opportunity number, awarding agency, close date, award ceiling, and from the detail record its ASSISTANCE LISTING number, PROGRAM OFFICER, and whether COST SHARING is required. Quote every value exactly as the screens display it.",
   "expectedSteps": 15,
   "maxSteps": 24,
   "capCents": 121,
@@ -17,8 +17,16 @@
   },
   "portal": {
     "theme": {
-      "bar": [17, 46, 81],
-      "accent": [0, 94, 162]
+      "bar": [
+        17,
+        46,
+        81
+      ],
+      "accent": [
+        0,
+        94,
+        162
+      ]
     },
     "site": "GRANTS.GOV",
     "sub": "Search Grants - federal funding from 26 agencies",
@@ -106,16 +114,46 @@
         "cols": 2,
         "status": "Opening the nearest-closing opportunity to confirm its agency and close date",
         "fields": [
-          ["Opportunity Number", "ED-GRANTS-051426-002"],
-          ["Assistance Listing", "84.356A"],
-          ["Funding Agency", "Department of Education"],
-          ["Category", "Education"],
-          ["Opportunity Status", "Posted"],
-          ["Posted Date", "May 14, 2026"],
-          ["Close Date", "Aug 24, 2026"],
-          ["Expected Awards", "12"],
-          ["Award Ceiling", "USD 2,000,000"],
-          ["Cost Sharing Required", "No"]
+          [
+            "Opportunity Number",
+            "ED-GRANTS-051426-002"
+          ],
+          [
+            "Assistance Listing",
+            "84.356A"
+          ],
+          [
+            "Funding Agency",
+            "Department of Education"
+          ],
+          [
+            "Category",
+            "Education"
+          ],
+          [
+            "Opportunity Status",
+            "Posted"
+          ],
+          [
+            "Posted Date",
+            "May 14, 2026"
+          ],
+          [
+            "Close Date",
+            "Aug 24, 2026"
+          ],
+          [
+            "Expected Awards",
+            "12"
+          ],
+          [
+            "Award Ceiling",
+            "USD 2,000,000"
+          ],
+          [
+            "Cost Sharing Required",
+            "No"
+          ]
         ]
       },
       {
@@ -168,5 +206,6 @@
         ]
       }
     ]
-  }
+  },
+  "software": "GRANTS-LEGACY Opportunity Register"
 }
