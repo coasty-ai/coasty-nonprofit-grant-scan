@@ -153,6 +153,12 @@ Adding a new automation is one `automation.json` and one prompt — `src/` never
 npm test     # node --test, no install, no network, no key
 ```
 
+## Coasty API
+
+[**COASTY.md**](COASTY.md) covers everything this repo touches: how to get a key,
+the four endpoints it calls, what each costs, the error codes worth branching on,
+and the two consents that keep a run from spending by accident.
+
 ## Related
 
 Part of the **Coasty automation catalog** — computer-use automations across 12 industries. See [the index](https://github.com/coasty-ai) for finance, healthcare, legal, logistics, energy, public sector, HR, education, manufacturing, retail and e-commerce.
